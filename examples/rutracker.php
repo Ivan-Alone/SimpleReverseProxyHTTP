@@ -4,7 +4,7 @@
 	include '../HTTPReverseProxy.class.php';
 	include '../domworker.php';
 
-	$reverse_url = 'rutracker.local';
+	$reverse_url = '127.0.0.1';
 
 	$proxy = new HTTPReverceProxy('http://rutracker.org');
 
