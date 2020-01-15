@@ -1,11 +1,10 @@
 <?php
 
-	# You can test this proxy on your localhost via "php -S 127.0.0.1:80 rutracker.php"
-
 	include '../Network.class.php';
 	include '../HTTPReverseProxy.class.php';
+	include '../domworker.php';
 
-	$reverse_url = '127.0.0.1';
+	$reverse_url = 'rutracker.local';
 
 	$proxy = new HTTPReverceProxy('http://rutracker.org');
 
@@ -32,23 +31,30 @@
 
 	# Proxy inspection of page and "AdBlock"ing for RuTracker
 	$proxy->addCustomInspector(function (&$data) {
-		preg_match('#vulkan/(.+)/index.html#U', $data, $out);
-		preg_match('#iframe/kwork(.+).html#U', $data, $out2);
+		if (strpos($data, '<body') !== false && strpos($data, '</body>') !== false && ($html = @loadHTML($data)) != null) {
+			foreach (findAllDOMElements($html, 'iframe') as $iframe) {
+				preg_match('#('.implode('|', [
+					'vulkan',
+					'kwork',
+					'ads',
+					'bet',
+					'sport'
+				]).')#', getAttribute($iframe, 'src'), $out);
 
-		$data = str_replace([
-			@$out[0],
-			@$out2[0],
-			"bn-top-right",
-			'style="padding: 0 0 3px;"',
-			'id="bn-top-block"'
-		], [
-			@$out[0].'" style="display: none;',
-			@$out2[0].'" style="display: none;',
-			'bn-top-right" style="display: none;',
-			'style="display: none;"',
-			'id="bn-top-block" style="display: none;"'
-		], $data);
-
+				if (count($out) > 0) {
+					$iframe->parentNode->removeChild($iframe);
+				}
+			}
+			foreach (findDOMElementById($html, 'bn-top-right') as $ads_block) {
+				$ads_block->parentNode->parentNode->removeChild($ads_block->parentNode);
+			}
+			foreach (findAllDOMElements($html, 'div') as $div) {
+				if (strpos(getAttribute($div, 'style'), 'padding: 0 0 3px;') !== false) {
+					$div->parentNode->removeChild($div);
+				}
+			}
+			$data = $html->saveHTML();
+		}
 	});
 
 	# Trying to spoof window.location in JS for cancel wrong client Host
